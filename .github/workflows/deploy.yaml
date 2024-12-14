@@ -10,15 +10,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    # Step 1: Checkout Repository
     - name: Checkout Repository
       uses: actions/checkout@v2
 
+    # Step 2: Install ArgoCD CLI
     - name: Install ArgoCD CLI
       run: |
         curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
         chmod +x argocd
         sudo mv argocd /usr/local/bin/
 
+    # Step 3: Set up Kubernetes Configuration
     - name: Set up Kubernetes Configuration
       env:
         KUBECONFIG: ${{ secrets.KUBECONFIG }}
@@ -26,9 +29,31 @@ jobs:
         echo "$KUBECONFIG" > kubeconfig
         export KUBECONFIG=kubeconfig
 
+    # Step 4: Sync ArgoCD App
     - name: Sync ArgoCD App
       run: |
         argocd login ${{ secrets.ARGOCD_SERVER }} --username admin --password ${{ secrets.ARGOCD_PASSWORD }} --insecure
         argocd app sync nginx-app --force
         argocd app wait nginx-app --sync
 
+    # Step 5: Install ngrok
+    - name: Install ngrok
+      run: |
+        curl -sSL https://ngrok.com/download | tar xz
+        sudo mv ngrok /usr/local/bin/
+
+    # Step 6: Authenticate ngrok with your token
+    - name: Authenticate ngrok
+      run: |
+        ngrok authtoken 2ppHFogJ8HvPtVU1vUtIch8mgDD_2qsXwfj9Za9e7cwhYhoTQ
+
+    # Step 7: Start ngrok Tunnel to expose the app
+    - name: Start ngrok Tunnel
+      run: |
+        nohup ngrok http 8080 &  # Replace 8080 with the port your app is running on if different
+
+    # Step 8: Output ngrok URL
+    - name: Output ngrok URL
+      run: |
+        sleep 10  # Wait for ngrok to start
+        curl http://localhost:4040/api/tunnels | jq -r .tunnels[0].public_url
