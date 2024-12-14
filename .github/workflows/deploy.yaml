@@ -1,40 +1,59 @@
 name: Deploy Application
 
-# Trigger the workflow on push to the main branch
 on:
   push:
     branches:
-      - main  # Specify the branch to trigger on
+      - main  # Triggers on push to the main branch
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest  # Use an Ubuntu-based runner
+    runs-on: ubuntu-latest
 
     steps:
+    # Step 1: Checkout Repository
     - name: Checkout Repository
-      uses: actions/checkout@v2  # Checkout the repository code
+      uses: actions/checkout@v2
 
-    - name: Set up kubectl
-      uses: actions/setup-kubectl@v2  # Set up kubectl to interact with Kubernetes
-      with:
-        kubectl-version: 'latest'  # Ensure you have the latest kubectl version
-
-    - name: Set Kubeconfig for Local Kubernetes
+    # Step 2: Install ArgoCD CLI
+    - name: Install ArgoCD CLI
       run: |
-        mkdir -p ~/.kube
-        echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config  # Load the kubeconfig from GitHub Secrets
+        curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+        chmod +x argocd
+        sudo mv argocd /usr/local/bin/
 
-    - name: Login to ArgoCD
-      run: |
-        argocd login ${{ secrets.ARGOCD_SERVER }} --username admin --password ${{ secrets.ARGOCD_PASSWORD }} --insecure
+    # Step 3: Set up Kubernetes Configuration
+    - name: Set up Kubernetes Configuration
       env:
-        ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
-        ARGOCD_PASSWORD: ${{ secrets.ARGOCD_PASSWORD }}
+        KUBECONFIG: ${{ secrets.KUBECONFIG }}
+      run: |
+        echo "$KUBECONFIG" > kubeconfig
+        export KUBECONFIG=kubeconfig
 
+    # Step 4: Sync ArgoCD App
     - name: Sync ArgoCD App
       run: |
-        argocd app sync nginx-app --force  # Force sync the app with the latest changes
-        argocd app wait nginx-app --sync   # Wait until the sync is complete
-      env:
-        ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
-        ARGOCD_PASSWORD: ${{ secrets.ARGOCD_PASSWORD }}
+        argocd login ${{ secrets.ARGOCD_SERVER }} --username admin --password ${{ secrets.ARGOCD_PASSWORD }} --insecure
+        argocd app sync nginx-app --force
+        argocd app wait nginx-app --sync
+
+    # Step 5: Install ngrok
+    - name: Install ngrok
+      run: |
+        curl -sSL https://ngrok.com/download | tar xz
+        sudo mv ngrok /usr/local/bin/
+
+    # Step 6: Authenticate ngrok with your token
+    - name: Authenticate ngrok
+      run: |
+        ngrok authtoken 2ppHFogJ8HvPtVU1vUtIch8mgDD_2qsXwfj9Za9e7cwhYhoTQ
+
+    # Step 7: Start ngrok Tunnel to expose the app
+    - name: Start ngrok Tunnel
+      run: |
+        nohup ngrok http 8080 &  # Replace 8080 with the port your app is running on if different
+
+    # Step 8: Output ngrok URL
+    - name: Output ngrok URL
+      run: |
+        sleep 10  # Wait for ngrok to start
+        curl http://localhost:4040/api/tunnels | jq -r .tunnels[0].public_url
