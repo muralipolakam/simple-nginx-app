@@ -1,0 +1,25 @@
+name: Deploy Application
+
+on:
+  push:
+    branches:
+      - main  # Triggers on push to the main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Set up Kubeconfig
+      uses: azure/setup-kubectl@v1
+      with:
+        kubeconfig: ${{ secrets.KUBECONFIG }}
+
+    - name: Sync ArgoCD App
+      run: |
+        argocd login ${{ secrets.ARGOCD_SERVER }} --username admin --password ${{ secrets.ARGOCD_PASSWORD }} --insecure
+        argocd app sync nginx-app --force
+        argocd app wait nginx-app --sync
