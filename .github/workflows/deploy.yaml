@@ -3,30 +3,30 @@ name: Deploy Application
 on:
   push:
     branches:
-      - main  # Triggers on push to the main branch
+       main  # Triggers on push to the main branch
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
+      name: Checkout Repository
       uses: actions/checkout@v2
 
-    - name: Install ArgoCD CLI
+      name: Install ArgoCD CLI
       run: |
         curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
         chmod +x argocd
         sudo mv argocd /usr/local/bin/
 
-    - name: Set up Kubernetes Configuration
+      name: Set up Kubernetes Configuration
       env:
         KUBECONFIG: ${{ secrets.KUBECONFIG }}
       run: |
         echo "$KUBECONFIG" > kubeconfig
         export KUBECONFIG=kubeconfig
 
-    - name: Sync ArgoCD App
+      name: Sync ArgoCD App
       run: |
         # Replace ARGOCD_SERVER with the public URL from localhost.run
         argocd login https://9cced84c4d5bc9.lhr.life --username admin --password ${{ secrets.ARGOCD_PASSWORD }} --insecure
